@@ -2,13 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>KrizTalk WebRTC Demo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
+            -webkit-tap-highlight-color: transparent;
         }
         .glass-card {
             background: rgba(15, 23, 42, 0.45);
@@ -32,14 +33,14 @@
         }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between relative overflow-x-hidden antialiased">
+<body class="bg-slate-950 text-slate-100 min-h-[100dvh] flex flex-col justify-between relative overflow-x-hidden antialiased">
     
     <!-- Dynamic Glowing Orbs -->
     <div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/10 blur-[120px] pointer-events-none"></div>
     <div class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-violet-500/10 blur-[120px] pointer-events-none"></div>
 
     <!-- Header -->
-    <header class="w-full max-w-6xl mx-auto px-6 py-6 flex items-center justify-between relative z-10">
+    <header id="appHeader" class="w-full max-w-6xl mx-auto px-6 py-6 flex items-center justify-between relative z-30 transition-all duration-300">
         <div class="flex items-center gap-3">
             <div class="h-11 w-11 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
                 <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
@@ -57,12 +58,19 @@
         </div>
     </header>
 
+    <!-- Floating Logs Drawer Toggle for Mobile (hidden on Desktop) -->
+    <button id="mobileLogTrigger" onclick="toggleLogsDrawer()" class="hidden fixed top-6 right-6 z-40 w-10 h-10 rounded-xl bg-slate-900/80 border border-white/10 flex items-center justify-center transition-all duration-300 active:scale-95" title="Toggle Logs">
+        <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"></path>
+        </svg>
+    </button>
+
     <!-- Main Container -->
-    <main class="w-full max-w-6xl mx-auto px-6 pb-12 grid grid-cols-1 lg:grid-cols-12 gap-8 flex-grow relative z-10 items-start">
+    <main class="w-full max-w-6xl mx-auto px-4 lg:px-6 pb-12 grid grid-cols-1 lg:grid-cols-12 gap-8 flex-grow relative z-10 items-stretch">
         
-        <!-- Left: Video Panel -->
-        <section class="lg:col-span-8 space-y-6">
-            <div id="videoContainer" class="relative aspect-video w-full rounded-3xl overflow-hidden glass-card shadow-2xl group border border-white/5 bg-slate-950/80">
+        <!-- Left / Full: Video Panel -->
+        <section id="videoSection" class="hidden lg:block lg:col-span-8 flex flex-col justify-between h-full">
+            <div id="videoContainer" class="relative w-full h-full lg:aspect-video rounded-3xl overflow-hidden lg:glass-card shadow-2xl group border border-white/5 bg-slate-950/80 transition-all duration-300">
                 
                 <!-- Large Remote Video -->
                 <video id="remoteVideo" autoplay playsinline class="w-full h-full object-cover transition-transform duration-500 ease-out"></video>
@@ -79,8 +87,8 @@
                 </div>
 
                 <!-- Small Floating Local Video -->
-                <div class="absolute bottom-4 right-4 z-20">
-                    <video id="localVideo" autoplay playsinline muted class="w-32 h-44 md:w-44 md:h-60 object-cover rounded-2xl border border-white/15 shadow-2xl bg-slate-950 transform hover:scale-[1.03] transition-all duration-300"></video>
+                <div class="absolute bottom-24 right-4 lg:bottom-4 lg:right-4 z-20">
+                    <video id="localVideo" autoplay playsinline muted class="w-28 h-36 md:w-44 md:h-60 object-cover rounded-2xl border border-white/15 shadow-2xl bg-slate-950 transform hover:scale-[1.03] transition-all duration-300"></video>
                     <span class="absolute bottom-2 left-2 text-[10px] bg-slate-950/80 backdrop-blur-md text-white px-2 py-0.5 rounded-md font-semibold border border-white/15">YOU</span>
                 </div>
 
@@ -101,7 +109,8 @@
             </div>
 
             <!-- Standalone Control Bar -->
-            <div class="flex items-center justify-center gap-4 py-4 px-6 glass-card rounded-2xl max-w-xl mx-auto border border-white/5">
+            <div id="controlsBar" class="flex items-center justify-center gap-4 py-4 px-6 glass-card rounded-2xl border border-white/5 transition-all duration-300
+                fixed bottom-6 left-4 right-4 z-30 max-w-sm mx-auto lg:relative lg:bottom-auto lg:left-auto lg:right-auto lg:max-w-xl">
                 <!-- Mute -->
                 <button id="muteBtn" disabled onclick="toggleMute()" class="w-12 h-12 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 disabled:opacity-50 disabled:cursor-not-allowed border border-white/5 flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95" title="Mute Audio">
                     <svg id="micIcon" class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -132,11 +141,11 @@
             </div>
         </section>
 
-        <!-- Right: Control Sidebar -->
-        <section class="lg:col-span-4 space-y-6">
+        <!-- Right: Control Sidebar & logs -->
+        <section id="sidebarSection" class="col-span-1 lg:col-span-4 flex flex-col gap-6 justify-center lg:justify-start">
             
             <!-- Room setup configuration Card -->
-            <div class="glass-card rounded-3xl p-6 border border-white/5 space-y-4">
+            <div id="setupCard" class="glass-card rounded-3xl p-6 border border-white/5 space-y-4 w-full max-w-md mx-auto transition-all duration-300">
                 <h2 class="text-sm font-extrabold uppercase tracking-widest text-slate-400">Join Call Session</h2>
                 
                 <div class="space-y-3">
@@ -165,8 +174,19 @@
             </div>
 
             <!-- Console Log Container -->
-            <div class="glass-card rounded-3xl p-6 border border-white/5 flex flex-col min-h-[280px]">
-                <h2 class="text-sm font-extrabold uppercase tracking-widest text-slate-400 mb-3">Session Log</h2>
+            <!-- Configured to behave as drawer on mobile and standard sidebar card on desktop -->
+            <div id="logsPanel" class="glass-card border border-white/5 flex flex-col min-h-[280px] transition-transform duration-300 ease-in-out
+                fixed inset-x-0 bottom-0 z-50 rounded-t-3xl p-6 max-h-[70dvh] translate-y-full 
+                lg:translate-y-0 lg:relative lg:inset-auto lg:rounded-3xl lg:p-6 lg:max-h-none">
+                
+                <!-- Drawer Pull Bar (Visible only on Mobile) -->
+                <div class="w-12 h-1 bg-slate-700 rounded-full mx-auto mb-4 lg:hidden cursor-pointer" onclick="toggleLogsDrawer()"></div>
+                
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-extrabold uppercase tracking-widest text-slate-400">Session Log</h2>
+                    <!-- Close button for drawer (Visible only on Mobile) -->
+                    <button onclick="toggleLogsDrawer()" class="text-xs text-indigo-400 font-bold uppercase lg:hidden">Close</button>
+                </div>
                 <div id="consoleLog" class="flex-grow console-scrollbar overflow-y-auto bg-slate-950/80 border border-slate-900 rounded-2xl p-4 max-h-[300px] h-[300px]"></div>
             </div>
 
@@ -175,7 +195,7 @@
     </main>
 
     <!-- Footer -->
-    <footer class="w-full text-center py-6 border-t border-white/5 relative z-10 text-xs text-slate-600 font-medium">
+    <footer id="appFooter" class="w-full text-center py-6 border-t border-white/5 relative z-10 text-xs text-slate-600 font-medium lg:block">
         &copy; 2026 KrizTalk. Built completely with secure WebRTC and PHP locking.
     </footer>
 
@@ -272,6 +292,7 @@
             if (!mediaOk) return;
 
             toggleUIState(true);
+            updateLayoutState(true);
             showSpinner();
             
             log(`Registering room ${roomCode} on signaling endpoint...`, 'sys');
@@ -294,6 +315,7 @@
                 log(data.error || 'Failed to create room', 'error');
                 alert(data.error || 'Failed to create room.');
                 toggleUIState(false);
+                updateLayoutState(false);
                 hideSpinner();
             }
         }
@@ -310,6 +332,7 @@
             if (!mediaOk) return;
 
             toggleUIState(true);
+            updateLayoutState(true);
             showSpinner();
             
             log(`Authenticating with room ${roomCode}...`, 'sys');
@@ -323,6 +346,7 @@
                 log(data.error || 'Failed to join room', 'error');
                 alert(data.error || 'Failed to join room. Verify the code.');
                 toggleUIState(false);
+                updateLayoutState(false);
                 hideSpinner();
             }
         }
@@ -509,6 +533,7 @@
             roomCode = '';
 
             toggleUIState(false);
+            updateLayoutState(false);
             hideSpinner();
             updateStatusBadge('closed');
             log('Call session terminated successfully', 'warn');
@@ -585,6 +610,49 @@
             }).catch(err => {
                 log('Failed to copy room link: ' + err, 'error');
             });
+        }
+
+        function toggleLogsDrawer() {
+            const panel = document.getElementById('logsPanel');
+            if (panel.classList.contains('translate-y-full')) {
+                panel.classList.remove('translate-y-full');
+                panel.classList.add('translate-y-0');
+            } else {
+                panel.classList.remove('translate-y-0');
+                panel.classList.add('translate-y-full');
+            }
+        }
+
+        function updateLayoutState(inCall) {
+            const videoSec = document.getElementById('videoSection');
+            const setupCard = document.getElementById('setupCard');
+            const appHeader = document.getElementById('appHeader');
+            const appFooter = document.getElementById('appFooter');
+            const mobileLogTrigger = document.getElementById('mobileLogTrigger');
+            const logsPanel = document.getElementById('logsPanel');
+
+            if (inCall) {
+                // Optimize layout to look like FaceTime/Zoom Mobile App during live call
+                videoSec.classList.remove('hidden', 'lg:block');
+                videoSec.classList.add('fixed', 'inset-0', 'z-20', 'h-full', 'w-full', 'lg:relative', 'lg:col-span-8', 'lg:block');
+                
+                setupCard.classList.add('hidden');
+                appHeader.classList.add('fixed', 'top-0', 'left-0', 'right-0', 'z-30', 'bg-gradient-to-b', 'from-slate-950/80', 'to-transparent', 'backdrop-blur-sm', 'lg:relative', 'lg:bg-none', 'lg:backdrop-blur-none');
+                appFooter.classList.add('hidden', 'lg:block');
+                
+                mobileLogTrigger.classList.remove('hidden');
+            } else {
+                // Reset layout structure to standard side-by-side configurations
+                videoSec.classList.add('hidden', 'lg:block');
+                videoSec.classList.remove('fixed', 'inset-0', 'z-20', 'h-full', 'w-full', 'lg:relative', 'lg:col-span-8');
+                
+                setupCard.classList.remove('hidden');
+                appHeader.classList.remove('fixed', 'top-0', 'left-0', 'right-0', 'z-30', 'bg-gradient-to-b', 'from-slate-950/80', 'to-transparent', 'backdrop-blur-sm', 'lg:relative', 'lg:bg-none', 'lg:backdrop-blur-none');
+                appFooter.classList.remove('hidden', 'lg:block');
+                
+                mobileLogTrigger.classList.add('hidden');
+                logsPanel.classList.add('translate-y-full'); // Auto collapse logs
+            }
         }
 
         function toggleUIState(active) {
