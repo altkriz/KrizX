@@ -275,7 +275,7 @@
                 const data = await res.json();
                 return data;
             } catch (err) {
-                log(`Network error sending backend request: ${err.message}`, 'error');
+                log(`Network error sending request: ${err.message}`, 'error');
                 return { success: false, error: err.message };
             }
         }
@@ -299,7 +299,7 @@
             const data = await sendSignaling({ action: 'create', room: roomCode });
             if (data && data.success) {
                 role = 'creator';
-                log('Room created on server', 'success');
+                log('Room created on server successfully', 'success');
                 setupPeerConnection();
                 
                 // Create local offer
@@ -387,6 +387,8 @@
                 }
             };
 
+            // Monitor state changes. We only log state changes here to avoid 
+            // destructive, premature teardowns during temporary WebRTC/ICE reconnect transitions.
             peerConnection.onconnectionstatechange = () => {
                 const state = peerConnection.connectionState;
                 log(`Connection State Change: ${state.toUpperCase()}`, state === 'connected' ? 'success' : 'warn');
@@ -394,9 +396,14 @@
                 
                 if (state === 'connected') {
                     hideSpinner();
-                } else if (state === 'failed' || state === 'disconnected') {
-                    log('Peer connection was disrupted', 'error');
-                    hangup();
+                }
+            };
+
+            peerConnection.oniceconnectionstatechange = () => {
+                const state = peerConnection.iceConnectionState;
+                log(`ICE Connection State: ${state.toUpperCase()}`, 'sys');
+                if (state === 'connected' || state === 'completed') {
+                    hideSpinner();
                 }
             };
         }
@@ -420,7 +427,7 @@
             const creatorJoined = peers.creator?.joined;
             const joinerJoined = peers.joiner?.joined;
 
-            // Handle remote disconnection clean-up
+            // Handle remote disconnection clean-up based on explicit signaling state
             if (role === 'creator' && !joinerJoined && peerConnection && peerConnection.connectionState === 'connected') {
                 log('Joiner peer disconnected from room session', 'warn');
                 hangup();
