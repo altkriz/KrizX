@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KrizTalk WebRTC Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .glass-card {
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+        }
+        .console-scrollbar::-webkit-scrollbar {
+            width: 5px;
+        }
+        .console-scrollbar::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.2);
+        }
+        .console-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        .console-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between relative overflow-x-hidden antialiased">
+    
+    <!-- Dynamic Glowing Orbs -->
+    <div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-500/10 blur-[120px] pointer-events-none"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-violet-500/10 blur-[120px] pointer-events-none"></div>
+
+    <!-- Header -->
+    <header class="w-full max-w-6xl mx-auto px-6 py-6 flex items-center justify-between relative z-10">
+        <div class="flex items-center gap-3">
+            <div class="h-11 w-11 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                </svg>
+            </div>
+            <div>
+                <span class="text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">KrizTalk</span>
+                <span class="text-xs text-indigo-400 font-semibold block uppercase tracking-widest mt-[-2px]">WebRTC Demo</span>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/60 border border-slate-800 backdrop-blur-md">
+            <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+            <span id="statusText" class="text-xs text-slate-300 font-bold uppercase tracking-wider">Idle</span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="w-full max-w-6xl mx-auto px-6 pb-12 grid grid-cols-1 lg:grid-cols-12 gap-8 flex-grow relative z-10 items-start">
+        
+        <!-- Left: Video Panel -->
+        <section class="lg:col-span-8 space-y-6">
+            <div id="videoContainer" class="relative aspect-video w-full rounded-3xl overflow-hidden glass-card shadow-2xl group border border-white/5 bg-slate-950/80">
+                
+                <!-- Large Remote Video -->
+                <video id="remoteVideo" autoplay playsinline class="w-full h-full object-cover transition-transform duration-500 ease-out"></video>
+
+                <!-- No Remote Placeholder -->
+                <div id="videoPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/90 text-center p-6 transition-opacity duration-300">
+                    <div class="h-20 w-20 rounded-full bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 mb-4 animate-pulse">
+                        <svg class="w-10 h-10 text-indigo-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"></path>
+                        </svg>
+                    </div>
+                    <p class="text-lg font-bold text-slate-200">Waiting for Remote Peer</p>
+                    <p class="text-sm text-slate-500 mt-1 max-w-xs">Create or join a room code to establish connection.</p>
+                </div>
+
+                <!-- Small Floating Local Video -->
+                <div class="absolute bottom-4 right-4 z-20">
+                    <video id="localVideo" autoplay playsinline muted class="w-32 h-44 md:w-44 md:h-60 object-cover rounded-2xl border border-white/15 shadow-2xl bg-slate-950 transform hover:scale-[1.03] transition-all duration-300"></video>
+                    <span class="absolute bottom-2 left-2 text-[10px] bg-slate-950/80 backdrop-blur-md text-white px-2 py-0.5 rounded-md font-semibold border border-white/15">YOU</span>
+                </div>
+
+                <!-- Room Watermark Banner -->
+                <div class="absolute top-4 left-4 flex items-center gap-2 bg-slate-950/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10">
+                    <span class="w-2 h-2 rounded-full bg-indigo-500 animate-ping"></span>
+                    <span class="text-xs font-semibold text-slate-300 tracking-wide uppercase">KrizTalk Room <span id="watermarkRoomCode" class="text-white font-extrabold">-</span></span>
+                </div>
+
+                <!-- Dynamic Loading Overlay -->
+                <div id="loadingSpinner" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-30 flex flex-col items-center justify-center transition-opacity duration-300">
+                    <div class="relative w-16 h-16 mb-4">
+                        <div class="absolute inset-0 rounded-full border-4 border-slate-800"></div>
+                        <div class="absolute inset-0 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin"></div>
+                    </div>
+                    <p class="text-sm font-bold text-slate-300 uppercase tracking-widest">Connecting Peer Media...</p>
+                </div>
+            </div>
+
+            <!-- Standalone Control Bar -->
+            <div class="flex items-center justify-center gap-4 py-4 px-6 glass-card rounded-2xl max-w-xl mx-auto border border-white/5">
+                <!-- Mute -->
+                <button id="muteBtn" disabled onclick="toggleMute()" class="w-12 h-12 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 disabled:opacity-50 disabled:cursor-not-allowed border border-white/5 flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95" title="Mute Audio">
+                    <svg id="micIcon" class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"></path>
+                    </svg>
+                </button>
+
+                <!-- Camera Toggle -->
+                <button id="cameraBtn" disabled onclick="toggleCamera()" class="w-12 h-12 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 disabled:opacity-50 disabled:cursor-not-allowed border border-white/5 flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95" title="Toggle Camera">
+                    <svg id="camIcon" class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.115-.782.17-1.185.17h-.451A1.5 1.5 0 002 8.9V18a1.5 1.5 0 001.5 1.5h17A1.5 1.5 0 0022 18V8.9a1.5 1.5 0 00-1.5-1.5h-.45a4.13 4.13 0 01-1.186-.169m-11.85-.294c.018-.022.036-.044.054-.066l1.344-1.68a1.498 1.498 0 012.202.001l1.345 1.68c.018.022.036.044.054.066m-11.85-.294a4.937 4.937 0 011.24.233c.318.091.647.135.975.135h.455a4.13 4.13 0 001.186-.169m11.85-.294a4.935 4.935 0 00-1.24.233c-.318.091-.647.135-.975.135h-.453a4.13 4.13 0 01-1.187-.17M15 13.5a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                </button>
+
+                <!-- Fullscreen -->
+                <button id="fullscreenBtn" onclick="toggleFullscreen()" class="w-12 h-12 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-white/5 flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95" title="Fullscreen">
+                    <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15"></path>
+                    </svg>
+                </button>
+
+                <!-- Hang up -->
+                <button id="hangupBtn" disabled onclick="hangup()" class="w-12 h-12 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-lg shadow-red-500/20 transition-all duration-300 hover:scale-105 active:scale-95" title="Hangup Call">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+                    </svg>
+                </button>
+            </div>
+        </section>
+
+        <!-- Right: Control Sidebar -->
+        <section class="lg:col-span-4 space-y-6">
+            
+            <!-- Room setup configuration Card -->
+            <div class="glass-card rounded-3xl p-6 border border-white/5 space-y-4">
+                <h2 class="text-sm font-extrabold uppercase tracking-widest text-slate-400">Join Call Session</h2>
+                
+                <div class="space-y-3">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Pair Code</label>
+                    <input type="text" id="roomInput" maxlength="12" placeholder="e.g. 123456" class="bg-slate-950/80 border border-slate-800 focus:border-indigo-500/80 focus:ring-2 focus:ring-indigo-500/20 text-white rounded-xl px-4 py-3 transition-all duration-200 outline-none w-full tracking-widest text-center text-xl font-extrabold">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- Create button -->
+                    <button id="createBtn" onclick="createRoom()" class="relative group bg-gradient-to-tr from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold py-3 rounded-xl transition-all duration-300 shadow-lg shadow-indigo-500/15 hover:scale-[1.02] active:scale-95 text-sm">
+                        Create Call
+                    </button>
+                    <!-- Join button -->
+                    <button id="joinBtn" onclick="joinRoom()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-3 rounded-xl transition-all duration-300 border border-white/5 hover:scale-[1.02] active:scale-95 text-sm">
+                        Join Call
+                    </button>
+                </div>
+
+                <!-- Copy Room Code Button -->
+                <button id="copyBtn" onclick="copyRoomLink()" class="w-full flex items-center justify-center gap-2 bg-slate-900/60 hover:bg-slate-800/80 text-slate-400 hover:text-slate-200 text-xs font-bold py-2.5 rounded-xl border border-white/5 transition-all duration-300">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.524 3h-.097a2.25 2.25 0 00-2.14 1.588L9 11h11.25l-2.25 2.25m-6.75-9.75v12.25m3.75-3.75h-.008v.008H18v-.008z"></path>
+                    </svg>
+                    <span>Copy Room Link</span>
+                </button>
+            </div>
+
+            <!-- Console Log Container -->
+            <div class="glass-card rounded-3xl p-6 border border-white/5 flex flex-col min-h-[280px]">
+                <h2 class="text-sm font-extrabold uppercase tracking-widest text-slate-400 mb-3">Session Log</h2>
+                <div id="consoleLog" class="flex-grow console-scrollbar overflow-y-auto bg-slate-950/80 border border-slate-900 rounded-2xl p-4 max-h-[300px] h-[300px]"></div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full text-center py-6 border-t border-white/5 relative z-10 text-xs text-slate-600 font-medium">
+        &copy; 2026 KrizTalk. Built completely with secure WebRTC and PHP locking.
+    </footer>
+
+    <!-- Signal Javascript Logic -->
+    <script>
+        const SIGNAL_URL = 'https://kriztech.in/code/signal.php';
+        
+        let localStream = null;
+        let remoteStream = null;
+        let peerConnection = null;
+        let roomCode = '';
+        let role = ''; // 'creator' or 'joiner'
+        let pollInterval = null;
+        
+        let processedRemoteCandidatesCount = 0;
+        let pendingCandidates = [];
+        let isMuted = false;
+        let isCameraOff = false;
+
+        // Auto-initialize randomized room number
+        document.addEventListener('DOMContentLoaded', () => {
+            const roomInput = document.getElementById('roomInput');
+            
+            // Clean non-alphanumeric values in code input
+            roomInput.addEventListener('input', () => {
+                roomInput.value = roomInput.value.replace(/[^a-zA-Z0-9_\-]/g, '');
+            });
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomParam = urlParams.get('room');
+            if (roomParam) {
+                roomInput.value = roomParam.replace(/[^a-zA-Z0-9_\-]/g, '');
+                log(`Auto-filled room code from invitation link: ${roomInput.value}`, 'sys');
+            } else {
+                roomInput.value = Math.floor(100000 + Math.random() * 900000);
+            }
+        });
+
+        function log(message, type = 'info') {
+            const consoleEl = document.getElementById('consoleLog');
+            if (!consoleEl) return;
+            const time = new Date().toLocaleTimeString();
+            let color = 'text-slate-400';
+            
+            switch(type) {
+                case 'success': color = 'text-emerald-400'; break;
+                case 'error': color = 'text-rose-400'; break;
+                case 'warn': color = 'text-amber-400'; break;
+                case 'sys': color = 'text-indigo-400'; break;
+            }
+            
+            consoleEl.innerHTML += `<div class="font-mono text-xs py-0.5"><span class="text-slate-600">[${time}]</span> <span class="${color}">${message}</span></div>`;
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        async function initMedia() {
+            try {
+                log('Accessing system camera and mic...', 'sys');
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('localVideo').srcObject = localStream;
+                log('Local media feeds secured', 'success');
+                return true;
+            } catch (err) {
+                log('Media initiation failed: ' + err.message, 'error');
+                alert('Cannot access camera or microphone. Please allow media permissions.');
+                return false;
+            }
+        }
+
+        async function sendSignaling(payload) {
+            try {
+                const res = await fetch(SIGNAL_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                return data;
+            } catch (err) {
+                log(`Network error sending backend request: ${err.message}`, 'error');
+                return { success: false, error: err.message };
+            }
+        }
+
+        async function createRoom() {
+            const inputVal = document.getElementById('roomInput').value.trim();
+            if (!inputVal) {
+                alert('Please enter a valid room code');
+                return;
+            }
+            
+            roomCode = inputVal;
+            const mediaOk = await initMedia();
+            if (!mediaOk) return;
+
+            toggleUIState(true);
+            showSpinner();
+            
+            log(`Registering room ${roomCode} on signaling endpoint...`, 'sys');
+            const data = await sendSignaling({ action: 'create', room: roomCode });
+            if (data && data.success) {
+                role = 'creator';
+                log('Room created on server', 'success');
+                setupPeerConnection();
+                
+                // Create local offer
+                log('Creating WebRTC SDP Offer...', 'sys');
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                
+                log('Sending SDP offer to signaling endpoint...', 'sys');
+                await sendSignaling({ action: 'offer', room: roomCode, peer: 'creator', offer: offer });
+                
+                startPolling();
+            } else {
+                log(data.error || 'Failed to create room', 'error');
+                alert(data.error || 'Failed to create room.');
+                toggleUIState(false);
+                hideSpinner();
+            }
+        }
+
+        async function joinRoom() {
+            const inputVal = document.getElementById('roomInput').value.trim();
+            if (!inputVal) {
+                alert('Please enter a valid room code');
+                return;
+            }
+            
+            roomCode = inputVal;
+            const mediaOk = await initMedia();
+            if (!mediaOk) return;
+
+            toggleUIState(true);
+            showSpinner();
+            
+            log(`Authenticating with room ${roomCode}...`, 'sys');
+            const data = await sendSignaling({ action: 'join', room: roomCode });
+            if (data && data.success) {
+                role = 'joiner';
+                log('Joined room session on server successfully', 'success');
+                setupPeerConnection();
+                startPolling();
+            } else {
+                log(data.error || 'Failed to join room', 'error');
+                alert(data.error || 'Failed to join room. Verify the code.');
+                toggleUIState(false);
+                hideSpinner();
+            }
+        }
+
+        function setupPeerConnection() {
+            log('Initializing WebRTC PeerConnection instance...', 'sys');
+            peerConnection = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+
+            // Map local stream tracks into PC
+            localStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, localStream);
+            });
+
+            // Prepare remote stream assignment
+            remoteStream = new MediaStream();
+            document.getElementById('remoteVideo').srcObject = remoteStream;
+
+            peerConnection.ontrack = (event) => {
+                log('Remote media track identified and mounted', 'success');
+                event.streams[0].getTracks().forEach(track => {
+                    remoteStream.addTrack(track);
+                });
+                document.getElementById('videoPlaceholder').style.opacity = '0';
+            };
+
+            // Capture and publish local ICE candidates automatically
+            peerConnection.onicecandidate = async (event) => {
+                if (event.candidate) {
+                    log('Local ICE candidate compiled', 'info');
+                    await sendSignaling({
+                        action: 'candidate',
+                        room: roomCode,
+                        peer: role,
+                        candidate: event.candidate
+                    });
+                }
+            };
+
+            peerConnection.onconnectionstatechange = () => {
+                const state = peerConnection.connectionState;
+                log(`Connection State Change: ${state.toUpperCase()}`, state === 'connected' ? 'success' : 'warn');
+                updateStatusBadge(state);
+                
+                if (state === 'connected') {
+                    hideSpinner();
+                } else if (state === 'failed' || state === 'disconnected') {
+                    log('Peer connection was disrupted', 'error');
+                    hangup();
+                }
+            };
+        }
+
+        function startPolling() {
+            log('Starting signaling synchronization...', 'sys');
+            if (pollInterval) clearInterval(pollInterval);
+            pollInterval = setInterval(async () => {
+                const data = await sendSignaling({ action: 'poll', room: roomCode, peer: role });
+                if (data && data.success) {
+                    await handlePollData(data);
+                } else if (data && !data.success) {
+                    log(`Polling returned failure: ${data.error}`, 'error');
+                    hangup();
+                }
+            }, 500); // 500ms polling rate
+        }
+
+        async function handlePollData(data) {
+            const peers = data.peers || {};
+            const creatorJoined = peers.creator?.joined;
+            const joinerJoined = peers.joiner?.joined;
+
+            // Handle remote disconnection clean-up
+            if (role === 'creator' && !joinerJoined && peerConnection && peerConnection.connectionState === 'connected') {
+                log('Joiner peer disconnected from room session', 'warn');
+                hangup();
+                return;
+            }
+            if (role === 'joiner' && !creatorJoined && peerConnection) {
+                log('Creator peer disconnected from room session', 'warn');
+                hangup();
+                return;
+            }
+
+            // Creator: wait for Answer
+            if (role === 'creator') {
+                if (joinerJoined && !peerConnection.remoteDescription && data.answer) {
+                    log('Remote SDP Answer retrieved. Appending remote system configurations...', 'sys');
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+                    log('Remote description applied', 'success');
+                    await processPendingCandidates();
+                }
+            }
+
+            // Joiner: wait for Offer
+            if (role === 'joiner') {
+                if (data.offer && !peerConnection.remoteDescription) {
+                    log('Remote SDP Offer retrieved. Appending remote system configurations...', 'sys');
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                    log('Remote description applied', 'success');
+                    
+                    log('Generating and sending answer...', 'sys');
+                    const answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+                    
+                    await sendSignaling({ action: 'answer', room: roomCode, peer: 'joiner', answer: answer });
+                    log('Answer pushed to signaling backend', 'success');
+                    await processPendingCandidates();
+                }
+            }
+
+            // Handle Candidate Exchange
+            const otherRole = role === 'creator' ? 'joiner' : 'creator';
+            const remoteCandidates = data.candidates?.[otherRole] || [];
+
+            if (remoteCandidates.length > processedRemoteCandidatesCount) {
+                for (let i = processedRemoteCandidatesCount; i < remoteCandidates.length; i++) {
+                    const candidateData = remoteCandidates[i];
+                    if (candidateData) {
+                        if (peerConnection && peerConnection.remoteDescription) {
+                            try {
+                                await peerConnection.addIceCandidate(new RTCIceCandidate(candidateData));
+                                log(`Remote ICE candidate processed (${i + 1}/${remoteCandidates.length})`, 'success');
+                            } catch (err) {
+                                log(`Failed to inject remote ICE candidate: ${err.message}`, 'error');
+                            }
+                        } else {
+                            pendingCandidates.push(candidateData);
+                        }
+                    }
+                }
+                processedRemoteCandidatesCount = remoteCandidates.length;
+            }
+        }
+
+        async function processPendingCandidates() {
+            if (pendingCandidates.length === 0) return;
+            log(`Processing ${pendingCandidates.length} queued ICE candidates...`, 'sys');
+            for (const cand of pendingCandidates) {
+                try {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
+                    log('Queued Remote ICE candidate processed', 'success');
+                } catch (err) {
+                    log(`Failed to process queued ICE candidate: ${err.message}`, 'error');
+                }
+            }
+            pendingCandidates = [];
+        }
+
+        async function hangup() {
+            log('Cleaning up peer connection and closing call session...', 'sys');
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+
+            // Notify backend
+            if (roomCode && role) {
+                await sendSignaling({ action: 'leave', room: roomCode, peer: role });
+            }
+
+            // Reset media tags
+            document.getElementById('localVideo').srcObject = null;
+            document.getElementById('remoteVideo').srcObject = null;
+            document.getElementById('videoPlaceholder').style.opacity = '1';
+
+            // Reset flags
+            processedRemoteCandidatesCount = 0;
+            pendingCandidates = [];
+            isMuted = false;
+            isCameraOff = false;
+            role = '';
+            roomCode = '';
+
+            toggleUIState(false);
+            hideSpinner();
+            updateStatusBadge('closed');
+            log('Call session terminated successfully', 'warn');
+        }
+
+        function toggleMute() {
+            if (localStream) {
+                const audioTrack = localStream.getAudioTracks()[0];
+                if (audioTrack) {
+                    audioTrack.enabled = !audioTrack.enabled;
+                    isMuted = !audioTrack.enabled;
+                    
+                    const btn = document.getElementById('muteBtn');
+                    const micIcon = document.getElementById('micIcon');
+                    
+                    if (isMuted) {
+                        btn.className = "w-12 h-12 rounded-xl bg-red-600/90 hover:bg-red-500/90 border border-white/5 flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95";
+                        micIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>`;
+                        log('Microphone feed suspended', 'warn');
+                    } else {
+                        btn.className = "w-12 h-12 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-white/5 flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95";
+                        micIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"></path>`;
+                        log('Microphone feed resumed', 'success');
+                    }
+                }
+            }
+        }
+
+        function toggleCamera() {
+            if (localStream) {
+                const videoTrack = localStream.getVideoTracks()[0];
+                if (videoTrack) {
+                    videoTrack.enabled = !videoTrack.enabled;
+                    isCameraOff = !videoTrack.enabled;
+                    
+                    const btn = document.getElementById('cameraBtn');
+                    const camIcon = document.getElementById('camIcon');
+                    
+                    if (isCameraOff) {
+                        btn.className = "w-12 h-12 rounded-xl bg-red-600/90 hover:bg-red-500/90 border border-white/5 flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95";
+                        camIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>`;
+                        log('Camera video frame stream suspended', 'warn');
+                    } else {
+                        btn.className = "w-12 h-12 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-white/5 flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95";
+                        camIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.115-.782.17-1.185.17h-.451A1.5 1.5 0 002 8.9V18a1.5 1.5 0 001.5 1.5h17A1.5 1.5 0 0022 18V8.9a1.5 1.5 0 00-1.5-1.5h-.45a4.13 4.13 0 01-1.186-.169m-11.85-.294c.018-.022.036-.044.054-.066l1.344-1.68a1.498 1.498 0 012.202.001l1.345 1.68c.018.022.036.044.054.066m-11.85-.294a4.937 4.937 0 011.24.233c.318.091.647.135.975.135h.455a4.13 4.13 0 001.186-.169m11.85-.294a4.935 4.935 0 00-1.24.233c-.318.091-.647.135-.975.135h-.453a4.13 4.13 0 01-1.187-.17M15 13.5a3 3 0 11-6 0 3 3 0 016 0z"></path>`;
+                        log('Camera video frame stream resumed', 'success');
+                    }
+                }
+            }
+        }
+
+        function toggleFullscreen() {
+            const videoContainer = document.getElementById('videoContainer');
+            if (!document.fullscreenElement) {
+                videoContainer.requestFullscreen().catch(err => {
+                    log(`Failed to initiate fullscreen layout: ${err.message}`, 'error');
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function copyRoomLink() {
+            const code = document.getElementById('roomInput').value.trim();
+            if (!code) return;
+            const fullUrl = window.location.origin + window.location.pathname + '?room=' + code;
+            
+            navigator.clipboard.writeText(fullUrl).then(() => {
+                const copyBtnSpan = document.querySelector('#copyBtn span');
+                copyBtnSpan.textContent = 'Copied Link!';
+                setTimeout(() => {
+                    copyBtnSpan.textContent = 'Copy Room Link';
+                }, 2000);
+            }).catch(err => {
+                log('Failed to copy room link: ' + err, 'error');
+            });
+        }
+
+        function toggleUIState(active) {
+            document.getElementById('createBtn').disabled = active;
+            document.getElementById('joinBtn').disabled = active;
+            document.getElementById('roomInput').disabled = active;
+            
+            document.getElementById('muteBtn').disabled = !active;
+            document.getElementById('cameraBtn').disabled = !active;
+            document.getElementById('hangupBtn').disabled = !active;
+            
+            document.getElementById('watermarkRoomCode').innerText = active ? roomCode : '-';
+            
+            if (!active) {
+                const muteBtn = document.getElementById('muteBtn');
+                const micIcon = document.getElementById('micIcon');
+                muteBtn.className = "w-12 h-12 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-white/5 flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95";
+                micIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z"></path>`;
+                
+                const cameraBtn = document.getElementById('cameraBtn');
+                const camIcon = document.getElementById('camIcon');
+                cameraBtn.className = "w-12 h-12 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-white/5 flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95";
+                camIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.115-.782.17-1.185.17h-.451A1.5 1.5 0 002 8.9V18a1.5 1.5 0 001.5 1.5h17A1.5 1.5 0 0022 18V8.9a1.5 1.5 0 00-1.5-1.5h-.45a4.13 4.13 0 01-1.186-.169m-11.85-.294c.018-.022.036-.044.054-.066l1.344-1.68a1.498 1.498 0 012.202.001l1.345 1.68c.018.022.036.044.054.066m-11.85-.294a4.937 4.937 0 011.24.233c.318.091.647.135.975.135h.455a4.13 4.13 0 001.186-.169m11.85-.294a4.935 4.935 0 00-1.24.233c-.318.091-.647.135-.975.135h-.453a4.13 4.13 0 01-1.187-.17M15 13.5a3 3 0 11-6 0 3 3 0 016 0z"></path>`;
+            }
+        }
+
+        function showSpinner() {
+            document.getElementById('loadingSpinner').classList.remove('hidden');
+        }
+
+        function hideSpinner() {
+            document.getElementById('loadingSpinner').classList.add('hidden');
+        }
+
+        function updateStatusBadge(state) {
+            const statusText = document.getElementById('statusText');
+            const statusDot = document.getElementById('statusDot');
+            
+            let label = 'Idle';
+            let dotClass = 'bg-slate-500';
+            
+            switch (state) {
+                case 'new':
+                case 'checking':
+                    label = 'Connecting';
+                    dotClass = 'bg-amber-500 animate-pulse';
+                    break;
+                case 'connected':
+                    label = 'Connected';
+                    dotClass = 'bg-emerald-500';
+                    break;
+                case 'disconnected':
+                case 'failed':
+                    label = 'Disconnected';
+                    dotClass = 'bg-rose-500 animate-pulse';
+                    break;
+                case 'closed':
+                    label = 'Idle';
+                    dotClass = 'bg-slate-500';
+                    break;
+            }
+            
+            statusText.innerText = label;
+            statusDot.className = `w-2.5 h-2.5 rounded-full ${dotClass}`;
+        }
+    </script>
+</body>
+</html>
